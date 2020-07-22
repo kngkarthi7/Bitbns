@@ -1,0 +1,73 @@
+import java.util.Base64;
+
+import javax.crypto.Mac;
+import javax.crypto.spec.SecretKeySpec;
+
+import org.apache.commons.codec.binary.Hex;
+
+import com.fasterxml.jackson.databind.ObjectMapper;
+
+import okhttp3.MediaType;
+import okhttp3.OkHttpClient;
+import okhttp3.Request;
+import okhttp3.RequestBody;
+import okhttp3.Response;
+
+public class BitbnsApiSample {
+
+public static void main(String[] args) throws Exception {
+String bodystring = "{\"symbol\":\"BTC\",\"side\":\"listMarketOrders\",\"type\":\"LEND\"}";
+System.out.print(System.currentTimeMillis());
+BitbnsAttributes attr = new BitbnsAttributes();
+attr.setTimeStamp_nonce(System.currentTimeMillis());
+attr.setBody(bodystring);
+ObjectMapper mapper = new ObjectMapper();
+String jsonString = mapper.writeValueAsString(attr);
+System.out.println(jsonString);
+String BasicBase64format= Base64.getEncoder().encodeToString(jsonString.getBytes());
+System.out.println("base64 encoded : "+BasicBase64format);
+
+Mac sha256_HMAC = Mac.getInstance("HmacSHA512");
+SecretKeySpec secret_key = new SecretKeySpec("secret".getBytes("ASCII"), "RAW");
+sha256_HMAC.init(secret_key);
+System.out.println(System.currentTimeMillis());
+String hash =  Hex.encodeHexString(sha256_HMAC.doFinal(BasicBase64format.getBytes()));
+System.out.println(hash);
+
+OkHttpClient client = new OkHttpClient().newBuilder()
+ .build();
+MediaType mediaType = MediaType.parse("application/x-www-form-urlencoded");
+RequestBody body = RequestBody.create(mediaType, bodystring);
+Request request = new Request.Builder()
+ .url("https://api.bitbns.com/api/trade/v2/marginOrders/")
+ .method("POST", body)
+ .addHeader("X-BITBNS-APIKEY", "apikey")
+ .addHeader("X-BITBNS-PAYLOAD", BasicBase64format)
+ .addHeader("X-BITBNS-SIGNATURE", hash)
+ .addHeader("Accept", "application/json")
+ .addHeader("Accept-Charset", "utf-8")
+ .addHeader("content-type", "application/x-www-form-urlencoded")
+ .build();
+Response response = client.newCall(request).execute();
+System.out.println("Response : "+response.body().string());
+
+}
+}
+
+class BitbnsAttributes {
+Long timeStamp_nonce;
+String body;
+public Long getTimeStamp_nonce() {
+return timeStamp_nonce;
+}
+public void setTimeStamp_nonce(Long timeStamp_nonce) {
+this.timeStamp_nonce = timeStamp_nonce;
+}
+public String getBody() {
+return body;
+}
+public void setBody(String body) {
+this.body = body;
+}
+
+}
